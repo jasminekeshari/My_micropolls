@@ -9,6 +9,7 @@ export default function CreatePoll() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showKeyHint, setShowKeyHint] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const addOption = () => {
@@ -43,6 +44,9 @@ export default function CreatePoll() {
         return;
       }
 
+      console.log('Sending admin key:', adminKey);
+      console.log('API URL:', `${API_BASE_URL}/api/polls`);
+      
       const response = await fetch(`${API_BASE_URL}/api/polls`, {
         method: 'POST',
         headers: {
@@ -54,6 +58,9 @@ export default function CreatePoll() {
           options: validOptions
         })
       });
+      
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
 
       const data = await response.json();
 
@@ -134,14 +141,23 @@ export default function CreatePoll() {
                   </div>
                 )}
                 
-                <input
-                  type="password"
-                  value={adminKey}
-                  onChange={(e) => setAdminKey(e.target.value)}
-                  className="w-full bg-black/40 text-white rounded-xl p-4 border border-white/20 focus:border-purple-400/70 focus:ring-4 focus:ring-purple-400/20 outline-none transition-all duration-300"
-                  placeholder="Enter admin key..."
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={adminKey}
+                    onChange={(e) => setAdminKey(e.target.value)}
+                    className="w-full bg-black/40 text-white rounded-xl p-4 pr-12 border border-white/20 focus:border-purple-400/70 focus:ring-4 focus:ring-purple-400/20 outline-none transition-all duration-300"
+                    placeholder="Enter admin key..."
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                  >
+                    {showPassword ? '🙈' : '👁️'}
+                  </button>
+                </div>
               </div>
 
               {/* Question */}

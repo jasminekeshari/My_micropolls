@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 5000;
 
 // CORS - Allow frontend
 app.use(cors({
-  origin: process.env.FRONTEND_URL || ['http://localhost:5173', 'https://*.vercel.app'],
+  origin: true,
   credentials: true
 }));
 
@@ -36,8 +36,12 @@ app.get('/', (req, res) => {
 app.post('/api/polls', async (req, res) => {
   try {
     const adminKey = req.headers['x-admin-key'];
+    const expectedKey = process.env.ADMIN_KEY || 'admin123';
     
-    if (!adminKey || adminKey !== process.env.ADMIN_KEY) {
+    console.log('Received admin key:', adminKey);
+    console.log('Expected admin key:', expectedKey);
+    
+    if (!adminKey || adminKey !== expectedKey) {
       return res.status(401).json({ error: 'Invalid admin key' });
     }
 
@@ -104,4 +108,6 @@ app.post('/api/polls/:id/vote', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 MicroPolls Server running on port ${PORT}`);
+  console.log('Admin key configured:', process.env.ADMIN_KEY || 'admin123');
+  console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
 });
