@@ -18,9 +18,22 @@ app.use(cors({
 
 app.use(bodyParser.json());
 
-// Connect to MongoDB
+// Request timeout middleware
+app.use((req, res, next) => {
+  req.setTimeout(10000); // 10 second timeout
+  res.setTimeout(10000);
+  next();
+});
+
+// Connect to MongoDB with optimized settings
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/micropolls';
-mongoose.connect(MONGODB_URI)
+mongoose.connect(MONGODB_URI, {
+  maxPoolSize: 10,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+  bufferCommands: false,
+  bufferMaxEntries: 0
+})
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
@@ -38,9 +51,6 @@ app.post('/api/polls', async (req, res) => {
     const adminKey = req.headers['x-admin-key'];
     const expectedKey = process.env.ADMIN_KEY || 'admin123';
     
-    console.log('Received admin key:', adminKey);
-    console.log('Expected admin key:', expectedKey);
-    
     if (!adminKey || adminKey !== expectedKey) {
       return res.status(401).json({ error: 'Invalid admin key' });
     }
@@ -52,13 +62,14 @@ app.post('/api/polls', async (req, res) => {
     }
 
     const poll = new Poll({
-      question,
-      options: options.map(text => ({ text, votes: 0 }))
+      question: question.trim(),
+      options: options.map(text => ({ text: text.trim(), votes: 0 }))
     });
 
-    await poll.save();
-    res.json({ _id: poll._id });
+    const savedPoll = await poll.save();
+    res.json({ _id: savedPoll._id });
   } catch (error) {
+    console.error('Poll creation error:', error);
     res.status(500).json({ error: error.message });
   }
 });

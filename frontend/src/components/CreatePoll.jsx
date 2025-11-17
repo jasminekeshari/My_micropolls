@@ -47,6 +47,9 @@ export default function CreatePoll() {
       console.log('Sending admin key:', adminKey);
       console.log('API URL:', `${API_BASE_URL}/api/polls`);
       
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch(`${API_BASE_URL}/api/polls`, {
         method: 'POST',
         headers: {
@@ -56,8 +59,11 @@ export default function CreatePoll() {
         body: JSON.stringify({
           question: question.trim(),
           options: validOptions
-        })
+        }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       console.log('Response status:', response.status);
       console.log('Response headers:', response.headers);
@@ -70,7 +76,11 @@ export default function CreatePoll() {
         setError(data.error || 'Failed to create poll');
       }
     } catch (err) {
-      setError('Failed to connect to server. Make sure backend is running!');
+      if (err.name === 'AbortError') {
+        setError('Request timed out. Please try again.');
+      } else {
+        setError('Failed to connect to server. Make sure backend is running!');
+      }
     } finally {
       setLoading(false);
     }

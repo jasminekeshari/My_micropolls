@@ -26,8 +26,9 @@ const PollSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Add index for better query performance
-PollSchema.index({ createdAt: -1 });
+// Add indexes for better query performance
+PollSchema.index({ _id: 1 }); // Primary key index (usually automatic but explicit)
+PollSchema.index({ createdAt: -1 }); // For sorting by creation date
 
 const Poll = mongoose.model('Poll', PollSchema);
 
