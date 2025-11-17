@@ -1,124 +1,78 @@
-// MicroPolls Backend Server - backend/server.js
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
-const mongoose = require('mongoose');
-const { Poll } = require('./models');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS - Allow frontend
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
+app.use(cors({ origin: true }));
+app.use(express.json());
 
-app.use(bodyParser.json());
+// In-memory storage (no database issues)
+const polls = new Map();
+let pollId = 1;
 
-// Request timeout middleware
-app.use((req, res, next) => {
-  req.setTimeout(10000); // 10 second timeout
-  res.setTimeout(10000);
-  next();
-});
-
-// Connect to MongoDB with optimized settings
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/micropolls';
-mongoose.connect(MONGODB_URI, {
-  maxPoolSize: 10,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-  bufferCommands: false,
-  bufferMaxEntries: 0
-})
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
-
-// Root route
+// Routes
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'MicroPolls API is running!',
-    status: 'online'
-  });
+  res.json({ message: 'MicroPolls API', status: 'running', storage: 'memory' });
 });
 
-// Create poll (admin only)
-app.post('/api/polls', async (req, res) => {
+app.post('/api/polls', (req, res) => {
   try {
     const adminKey = req.headers['x-admin-key'];
-    const expectedKey = process.env.ADMIN_KEY || 'admin123';
-    
-    if (!adminKey || adminKey !== expectedKey) {
+    if (adminKey !== (process.env.ADMIN_KEY || 'admin123')) {
       return res.status(401).json({ error: 'Invalid admin key' });
     }
 
     const { question, options } = req.body;
-    
-    if (!question || !options || !Array.isArray(options) || options.length < 2 || options.length > 6) {
-      return res.status(400).json({ error: 'Question and 2-6 options required' });
+    if (!question || !Array.isArray(options) || options.length < 2) {
+      return res.status(400).json({ error: 'Question and 2+ options required' });
     }
 
-    const poll = new Poll({
+    const id = (pollId++).toString();
+    const poll = {
+      _id: id,
       question: question.trim(),
-      options: options.map(text => ({ text: text.trim(), votes: 0 }))
-    });
+      options: options.map(text => ({ text: text.trim(), votes: 0 })),
+      createdAt: new Date()
+    };
 
-    const savedPoll = await poll.save();
-    res.json({ _id: savedPoll._id });
+    polls.set(id, poll);
+    res.json({ _id: id });
   } catch (error) {
-    console.error('Poll creation error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to create poll' });
   }
 });
 
-// Get poll by ID
-app.get('/api/polls/:id', async (req, res) => {
-  try {
-    const poll = await Poll.findById(req.params.id);
-    
-    if (!poll) {
-      return res.status(404).json({ error: 'Poll not found' });
-    }
-
-    res.json(poll);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+app.get('/api/polls/:id', (req, res) => {
+  const poll = polls.get(req.params.id);
+  if (!poll) {
+    return res.status(404).json({ error: 'Poll not found' });
   }
+  res.json(poll);
 });
 
-// Vote on poll
-app.post('/api/polls/:id/vote', async (req, res) => {
+app.post('/api/polls/:id/vote', (req, res) => {
   try {
     const { optionIndex } = req.body;
-    
-    if (typeof optionIndex !== 'number') {
-      return res.status(400).json({ error: 'Option index required' });
-    }
-
-    const poll = await Poll.findById(req.params.id);
+    const poll = polls.get(req.params.id);
     
     if (!poll) {
       return res.status(404).json({ error: 'Poll not found' });
     }
-
-    if (optionIndex < 0 || optionIndex >= poll.options.length) {
+    
+    if (typeof optionIndex !== 'number' || optionIndex < 0 || optionIndex >= poll.options.length) {
       return res.status(400).json({ error: 'Invalid option index' });
     }
 
     poll.options[optionIndex].votes += 1;
-    await poll.save();
-
     res.json(poll);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to record vote' });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 MicroPolls Server running on port ${PORT}`);
-  console.log('Admin key configured:', process.env.ADMIN_KEY || 'admin123');
-  console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
+  console.log(`🚀 MicroPolls server running on port ${PORT}`);
+  console.log('✅ Using in-memory storage (no database issues)');
 });
